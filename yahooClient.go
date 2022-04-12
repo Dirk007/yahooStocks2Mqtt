@@ -18,6 +18,15 @@ type YahooStockInfo struct {
 	Symbol             string  `json:"symbol"`
 }
 
+func (stock YahooStockInfo) Serialize() (string, error) {
+	result, err := json.Marshal(stock)
+	if err != nil {
+		return "", err
+	}
+
+	return string(result), nil
+}
+
 type YahooQuoteResponse struct {
 	Result []YahooStockInfo `json:"result"`
 }

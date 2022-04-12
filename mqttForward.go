@@ -44,7 +44,11 @@ func onMqttConnected(client mqtt.Client, server string, code byte, err error) {
 	}
 }
 
-func mqttLoop(config MqttConfig, quotesChannel chan YahooStockInfo, kill chan bool) {
+type Serializeable interface {
+	Serialize() (string, error)
+}
+
+func mqttLoop[V Serializeable](config MqttConfig, quotesChannel chan V, kill chan bool) {
 	client, err := mqtt.NewClient(
 		mqtt.WithKeepalive(60, 1.2),
 		mqtt.WithAutoReconnect(true),
@@ -87,7 +91,7 @@ func mqttLoop(config MqttConfig, quotesChannel chan YahooStockInfo, kill chan bo
 	for {
 		quote := <-quotesChannel
 		log.Printf("Received quote: %v", quote)
-		jsonQuote, err := json.Marshal(quote)
+		jsonQuote, err := quote.Serialize()
 		if err != nil {
 			log.Printf("Error marshalling incoming quote: %v", err)
 			continue
