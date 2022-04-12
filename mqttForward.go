@@ -41,17 +41,17 @@ func (command MqttCommand) IsKill() bool {
 	return strings.ToLower(command.Command) == "kill"
 }
 
-func NewForwarder[V Serializeable](config MqttConfig, publishTopic string, commandTopic string, killSwitch chan bool, dataPipe chan V) MqttForwarder[V] {
+func NewForwarder[V Serializeable](config MqttConfig, publishTopic string, commandTopic string, killSwitch chan bool, data chan V) MqttForwarder[V] {
 	return MqttForwarder[V]{
 		target:       config.ConnectionString(),
 		publishTopic: publishTopic,
 		commandTopic: commandTopic,
 		killSwitch:   killSwitch,
-		data:         dataPipe,
+		data:         data,
 	}
 }
 
-func (forwarder MqttForwarder[V]) onMqttConnected(client mqtt.Client, server string, code byte, err error) {
+func (forwarder MqttForwarder[_]) onMqttConnected(client mqtt.Client, server string, code byte, err error) {
 	logLine := fmt.Sprintf("Connection to MQTT. Server %v, Code %v, err %v", server, code, err)
 	if err != nil || code != mqtt.CodeSuccess {
 		log.Fatal(logLine)
@@ -63,7 +63,7 @@ func (forwarder MqttForwarder[V]) onMqttConnected(client mqtt.Client, server str
 	}
 }
 
-func (forwarder MqttForwarder[V]) onMqttMessage(client mqtt.Client, topic string, qos mqtt.QosLevel, msg []byte) {
+func (forwarder MqttForwarder[_]) onMqttMessage(client mqtt.Client, topic string, qos mqtt.QosLevel, msg []byte) {
 	log.Printf("MQTT [%v] message: %v", topic, string(msg))
 	if topic != forwarder.commandTopic {
 		return
@@ -81,11 +81,12 @@ func (forwarder MqttForwarder[V]) onMqttMessage(client mqtt.Client, topic string
 	// TODO: Add more as needed
 	if command.IsKill() {
 		forwarder.killSwitch <- true
+		close(forwarder.data)
 	}
 
 }
 
-func (forwarder MqttForwarder[V]) Run() {
+func (forwarder MqttForwarder[_]) Run() {
 	client, err := mqtt.NewClient(
 		mqtt.WithKeepalive(60, 1.2),
 		mqtt.WithAutoReconnect(true),
@@ -106,26 +107,20 @@ func (forwarder MqttForwarder[V]) Run() {
 
 	client.HandleTopic(".*", forwarder.onMqttMessage)
 
-	var quote Serializeable
 	for {
-		select {
-		case quote = <-forwarder.data:
-			log.Printf("Received quote: %v", quote)
-			jsonQuote, err := quote.Serialize()
-			if err != nil {
-				log.Printf("Error marshalling incoming quote: %v", err)
-				continue
-			}
-			client.Publish([]*mqtt.PublishPacket{
-				{
-					TopicName: forwarder.publishTopic,
-					Payload:   []byte(jsonQuote),
-					Qos:       mqtt.Qos0,
-				},
-			}...)
-		case _ = <-forwarder.killSwitch:
-			log.Println("MQTT exiting for kill-switch")
-			return
+		quote := <-forwarder.data
+		log.Printf("Received quote: %v", quote)
+		jsonQuote, err := quote.Serialize()
+		if err != nil {
+			log.Printf("Error marshalling incoming quote: %v", err)
+			continue
 		}
+		client.Publish([]*mqtt.PublishPacket{
+			{
+				TopicName: forwarder.publishTopic,
+				Payload:   []byte(jsonQuote),
+				Qos:       mqtt.Qos0,
+			},
+		}...)
 	}
 }
