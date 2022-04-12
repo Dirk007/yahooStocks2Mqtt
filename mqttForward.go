@@ -81,12 +81,11 @@ func (forwarder MqttForwarder[_]) onMqttMessage(client mqtt.Client, topic string
 	// TODO: Add more as needed
 	if command.IsKill() {
 		forwarder.killSwitch <- true
-		close(forwarder.data)
 	}
 
 }
 
-func (forwarder MqttForwarder[_]) Run() {
+func (forwarder MqttForwarder[V]) Run() {
 	client, err := mqtt.NewClient(
 		mqtt.WithKeepalive(60, 1.2),
 		mqtt.WithAutoReconnect(true),
@@ -107,20 +106,25 @@ func (forwarder MqttForwarder[_]) Run() {
 
 	client.HandleTopic(".*", forwarder.onMqttMessage)
 
+	quote := *new(V)
 	for {
-		quote := <-forwarder.data
-		log.Printf("Received quote: %v", quote)
-		jsonQuote, err := quote.Serialize()
-		if err != nil {
-			log.Printf("Error marshalling incoming quote: %v", err)
-			continue
+		select {
+		case quote = <-forwarder.data:
+			log.Printf("Received quote: %v", quote)
+			jsonQuote, err := quote.Serialize()
+			if err != nil {
+				log.Printf("Error marshalling incoming quote: %v", err)
+				continue
+			}
+			client.Publish([]*mqtt.PublishPacket{
+				{
+					TopicName: forwarder.publishTopic,
+					Payload:   []byte(jsonQuote),
+					Qos:       mqtt.Qos0,
+				},
+			}...)
+		case _ = <-forwarder.killSwitch:
+			break
 		}
-		client.Publish([]*mqtt.PublishPacket{
-			{
-				TopicName: forwarder.publishTopic,
-				Payload:   []byte(jsonQuote),
-				Qos:       mqtt.Qos0,
-			},
-		}...)
 	}
 }
