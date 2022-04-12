@@ -2,7 +2,6 @@ package main
 
 import (
 	"os"
-	"time"
 )
 
 func main() {
@@ -16,10 +15,7 @@ func main() {
 	kill := make(chan bool)
 
 	go requestLoop(config.Symbols, config.RequestPeriod(), quotes, kill)
-	go mqttLoop(config.Mqtt, quotes, kill)
 
-	for {
-		time.Sleep(time.Minute * 1)
-	}
-
+	forwarder := NewForwarder(config.Mqtt, "stocks/quote", "stocks/command", kill, quotes)
+	forwarder.Run()
 }

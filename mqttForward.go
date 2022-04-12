@@ -10,8 +10,17 @@ import (
 	mqtt "github.com/goiiot/libmqtt"
 )
 
-const STOCK_COMMAND_TOPIC = "stock/command"
-const STOCK_PUBLISH_TOPIC = "stock/quote"
+type Serializeable interface {
+	Serialize() (string, error)
+}
+
+type MqttForwarder[V Serializeable] struct {
+	target       string
+	publishTopic string
+	commandTopic string
+	killSwitch   chan bool
+	data         chan V
+}
 
 type MqttConfig struct {
 	MqttHost string `yaml:""`
@@ -32,23 +41,51 @@ func (command MqttCommand) IsKill() bool {
 	return strings.ToLower(command.Command) == "kill"
 }
 
-func onMqttConnected(client mqtt.Client, server string, code byte, err error) {
+func NewForwarder[V Serializeable](config MqttConfig, publishTopic string, commandTopic string, killSwitch chan bool, dataPipe chan V) MqttForwarder[V] {
+	return MqttForwarder[V]{
+		target:       config.ConnectionString(),
+		publishTopic: publishTopic,
+		commandTopic: commandTopic,
+		killSwitch:   killSwitch,
+		data:         dataPipe,
+	}
+}
+
+func (forwarder MqttForwarder[V]) onMqttConnected(client mqtt.Client, server string, code byte, err error) {
 	logLine := fmt.Sprintf("Connection to MQTT. Server %v, Code %v, err %v", server, code, err)
 	if err != nil || code != mqtt.CodeSuccess {
 		log.Fatal(logLine)
 	} else {
 		log.Println(logLine)
 		client.Subscribe([]*mqtt.Topic{
-			{Name: STOCK_COMMAND_TOPIC, Qos: mqtt.Qos1},
+			{Name: forwarder.commandTopic, Qos: mqtt.Qos1},
 		}...)
 	}
 }
 
-type Serializeable interface {
-	Serialize() (string, error)
+func (forwarder MqttForwarder[V]) onMqttMessage(client mqtt.Client, topic string, qos mqtt.QosLevel, msg []byte) {
+	log.Printf("MQTT [%v] message: %v", topic, string(msg))
+	if topic != forwarder.commandTopic {
+		return
+	}
+
+	command := MqttCommand{}
+	err := json.Unmarshal(msg, &command)
+	if err != nil {
+		log.Printf("Unable to unmarshal mqtt command %v: %v", string(msg), err)
+		return
+	}
+
+	log.Printf("Received mqtt command: '%v'", command)
+
+	// TODO: Add more as needed
+	if command.IsKill() {
+		forwarder.killSwitch <- true
+	}
+
 }
 
-func mqttLoop[V Serializeable](config MqttConfig, quotesChannel chan V, kill chan bool) {
+func (forwarder MqttForwarder[V]) Run() {
 	client, err := mqtt.NewClient(
 		mqtt.WithKeepalive(60, 1.2),
 		mqtt.WithAutoReconnect(true),
@@ -60,48 +97,35 @@ func mqttLoop[V Serializeable](config MqttConfig, quotesChannel chan V, kill cha
 		panic(fmt.Errorf("Unable to create MQTT client: %v", err))
 	}
 
-	client.ConnectServer(config.ConnectionString(),
+	client.ConnectServer(forwarder.target,
 		mqtt.WithCustomTLS(nil),
-		mqtt.WithConnHandleFunc(onMqttConnected))
+		mqtt.WithConnHandleFunc(forwarder.onMqttConnected))
 
 	// Disconnect nicely
 	defer client.Destroy(false)
 
-	client.HandleTopic(".*", func(client mqtt.Client, topic string, qos mqtt.QosLevel, msg []byte) {
-		log.Printf("MQTT [%v] message: %v", topic, string(msg))
-		if topic != STOCK_COMMAND_TOPIC {
-			return
-		}
+	client.HandleTopic(".*", forwarder.onMqttMessage)
 
-		command := MqttCommand{}
-		err := json.Unmarshal(msg, &command)
-		if err != nil {
-			log.Printf("Unable to unmarshal mqtt command %v: %v", string(msg), err)
-			return
-		}
-
-		log.Printf("Received mqtt command: '%v'", command)
-
-		// TODO: Add more as needed
-		if command.IsKill() {
-			kill <- true
-		}
-	})
-
+	var quote Serializeable
 	for {
-		quote := <-quotesChannel
-		log.Printf("Received quote: %v", quote)
-		jsonQuote, err := quote.Serialize()
-		if err != nil {
-			log.Printf("Error marshalling incoming quote: %v", err)
-			continue
+		select {
+		case quote = <-forwarder.data:
+			log.Printf("Received quote: %v", quote)
+			jsonQuote, err := quote.Serialize()
+			if err != nil {
+				log.Printf("Error marshalling incoming quote: %v", err)
+				continue
+			}
+			client.Publish([]*mqtt.PublishPacket{
+				{
+					TopicName: forwarder.publishTopic,
+					Payload:   []byte(jsonQuote),
+					Qos:       mqtt.Qos0,
+				},
+			}...)
+		case _ = <-forwarder.killSwitch:
+			log.Println("MQTT exiting for kill-switch")
+			return
 		}
-		client.Publish([]*mqtt.PublishPacket{
-			{
-				TopicName: STOCK_PUBLISH_TOPIC,
-				Payload:   []byte(jsonQuote),
-				Qos:       mqtt.Qos0,
-			},
-		}...)
 	}
 }
