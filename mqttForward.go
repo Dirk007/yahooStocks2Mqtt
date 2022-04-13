@@ -77,6 +77,8 @@ func (forwarder MqttForwarder[_]) onMqttMessage(client mqtt.Client, topic string
 
 	// TODO: Add more as needed
 	if command.IsKill() {
+		// TODO: Unsure - I think we need one write per listener.. so two at this time
+		forwarder.killSwitch <- true
 		forwarder.killSwitch <- true
 	}
 
