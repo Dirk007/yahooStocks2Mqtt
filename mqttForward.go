@@ -61,7 +61,7 @@ func (forwarder MqttForwarder[_]) onMqttConnected(client mqtt.Client, server str
 }
 
 func (forwarder MqttForwarder[_]) onMqttMessage(client mqtt.Client, topic string, qos mqtt.QosLevel, msg []byte) {
-	log.Debug("MQTT [%v] message: %v", topic, string(msg))
+	log.Debugf("MQTT [%v] message: %v", topic, string(msg))
 	if topic != forwarder.commandTopic {
 		return
 	}
@@ -69,11 +69,11 @@ func (forwarder MqttForwarder[_]) onMqttMessage(client mqtt.Client, topic string
 	command := MqttCommand{}
 	err := json.Unmarshal(msg, &command)
 	if err != nil {
-		log.Warn("Unable to unmarshal mqtt command %v: %v", string(msg), err)
+		log.Warnf("Unable to unmarshal mqtt command %v: %v", string(msg), err)
 		return
 	}
 
-	log.Debug("Received mqtt command: '%v'", command)
+	log.Debugf("Received mqtt command: '%v'", command)
 
 	// TODO: Add more as needed
 	if command.IsKill() {
@@ -94,12 +94,12 @@ func (forwarder MqttForwarder[V]) Run() {
 	}
 
 	if forwarder.config.ClientID != nil {
-		log.Debug("Using MQTT clientID %v", forwarder.config.ClientID)
+		log.Debugf("Using MQTT clientID %v", forwarder.config.ClientID)
 		options = append(options, mqtt.WithClientID(*forwarder.config.ClientID))
 	}
 
 	if forwarder.config.Credentials != nil {
-		log.Debug("Using MQTT credentials %v:*******", forwarder.config.Credentials.Username)
+		log.Debugf("Using MQTT credentials %v:*******", forwarder.config.Credentials.Username)
 		options = append(options, mqtt.WithIdentity(forwarder.config.Credentials.Username, forwarder.config.Credentials.Password))
 	}
 
@@ -124,10 +124,10 @@ func (forwarder MqttForwarder[V]) Run() {
 	for {
 		select {
 		case quote = <-forwarder.data:
-			log.Debug("Received quote: %v", quote)
+			log.Debugf("Received quote: %v", quote)
 			jsonQuote, err := quote.Serialize()
 			if err != nil {
-				log.Warn("Error marshalling incoming quote: %v", err)
+				log.Warnf("Error marshalling incoming quote: %v", err)
 				continue
 			}
 			client.Publish([]*mqtt.PublishPacket{

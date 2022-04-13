@@ -72,7 +72,7 @@ func requestLoop(symbols []string, requestPeriod time.Duration, quotesChannel ch
 		if err != nil {
 			log.Fatalf("Unable to request symbols: %v", err)
 		} else {
-			log.Debug("Got quotes: %v\n", quotes)
+			log.Debugf("Got quotes: %v", quotes)
 			for _, quote := range quotes {
 				quotesChannel <- quote
 			}
