@@ -20,6 +20,10 @@ type ForwarderConnectionBuilder[V Serializeable] struct {
 	ForwarderBuilder[V]
 }
 
+type ForwarderMQTTBuilder[V Serializeable] struct {
+	ForwarderBuilder[V]
+}
+
 func NewForwarderBuilder[V Serializeable]() *ForwarderBuilder[V] {
 	return &ForwarderBuilder[V]{
 		inner: &MqttForwarder[V]{},
@@ -70,6 +74,23 @@ func (builder *ForwarderConnectionBuilder[V]) Port(port uint16) *ForwarderConnec
 
 func (builder *ForwarderConnectionBuilder[V]) DefaultPort() *ForwarderConnectionBuilder[V] {
 	builder.inner.config.Port = DEFAULT_MQTT_PORT
+	return builder
+}
+
+func (builder *ForwarderBuilder[V]) MQTT() *ForwarderMQTTBuilder[V] {
+	return &ForwarderMQTTBuilder[V]{*builder}
+}
+
+func (builder *ForwarderMQTTBuilder[V]) ClientID(clientID string) *ForwarderMQTTBuilder[V] {
+	builder.inner.config.ClientID = &clientID
+	return builder
+}
+
+func (builder *ForwarderMQTTBuilder[V]) Credentials(username string, password string) *ForwarderMQTTBuilder[V] {
+	builder.inner.config.Credentials = &Credentials{
+		Username: username,
+		Password: password,
+	}
 	return builder
 }
 
