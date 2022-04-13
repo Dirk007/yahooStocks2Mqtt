@@ -20,14 +20,25 @@ func main() {
 	quotes := make(chan YahooStockInfo)
 	kill := make(chan bool)
 
-	forwarder, err := NewForwarderBuilder[YahooStockInfo]().
+	builder := NewForwarderBuilder[YahooStockInfo]().
 		Channels().Data(quotes).KillWitch(kill).
 		Topics().Input("stocks/command").Output("stockts/quote").
-		Server().Host(config.Mqtt.Host).Port(config.Mqtt.Port).
-		Build()
+		Server().Host(config.Mqtt.Host).Port(config.Mqtt.Port)
+
+	if config.Mqtt.ClientID != nil {
+		builder.MQTT().ClientID(*config.Mqtt.ClientID)
+	}
+
+	if config.Mqtt.Credentials != nil {
+		builder.MQTT().Credentials().
+			Username(config.Mqtt.Credentials.Username).
+			Password(config.Mqtt.Credentials.Password)
+	}
+
+	forwarder, err := builder.Build()
 
 	if err != nil {
-		log.Error("Unable to build MQTT forwarder: %v", err)
+		log.Errorf("Unable to build MQTT forwarder: %v", err)
 		os.Exit(1)
 	}
 

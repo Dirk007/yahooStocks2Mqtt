@@ -24,6 +24,10 @@ type ForwarderMQTTBuilder[V Serializeable] struct {
 	ForwarderBuilder[V]
 }
 
+type ForwarderCredentialsBuilder[V Serializeable] struct {
+	ForwarderMQTTBuilder[V]
+}
+
 func NewForwarderBuilder[V Serializeable]() *ForwarderBuilder[V] {
 	return &ForwarderBuilder[V]{
 		inner: &MqttForwarder[V]{},
@@ -86,12 +90,27 @@ func (builder *ForwarderMQTTBuilder[V]) ClientID(clientID string) *ForwarderMQTT
 	return builder
 }
 
-func (builder *ForwarderMQTTBuilder[V]) Credentials(username string, password string) *ForwarderMQTTBuilder[V] {
-	builder.inner.config.Credentials = &Credentials{
-		Username: username,
-		Password: password,
-	}
+func (builder *ForwarderMQTTBuilder[V]) Credentials() *ForwarderCredentialsBuilder[V] {
+	result := &ForwarderCredentialsBuilder[V]{*builder}
+	result.inner.config.Credentials = &Credentials{}
+	return result
+}
+
+func (builder *ForwarderCredentialsBuilder[V]) Username(username string) *ForwarderCredentialsBuilder[V] {
+	builder.inner.config.Credentials.Username = username
 	return builder
+}
+
+func (builder *ForwarderCredentialsBuilder[V]) Password(password string) *ForwarderCredentialsBuilder[V] {
+	builder.inner.config.Credentials.Password = password
+	return builder
+}
+
+func credentialsOK(config MqttConfig) bool {
+	return (config.Credentials != nil &&
+		config.Credentials.Username != "" &&
+		config.Credentials.Password != "") ||
+		config.Credentials == nil
 }
 
 func (builder *ForwarderBuilder[V]) Build() (*MqttForwarder[V], error) {
@@ -100,7 +119,8 @@ func (builder *ForwarderBuilder[V]) Build() (*MqttForwarder[V], error) {
 		builder.inner.publishTopic == "" ||
 		builder.inner.commandTopic == "" ||
 		builder.inner.config.Host == "" ||
-		builder.inner.config.Port == 0 {
+		builder.inner.config.Port == 0 ||
+		!credentialsOK(builder.inner.config) {
 		return nil, fmt.Errorf("Builder not ready - missing settings")
 	}
 
