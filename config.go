@@ -33,8 +33,8 @@ func getDefaultConfig() Config {
 		RequestPeriodRepr: "5m",
 		Symbols:           []string{"VGWL.DE", "VFEM.DE", "NLLSF", "PFE.DE"},
 		Mqtt: MqttConfig{
-			MqttHost: "192.168.1.104",
-			MqttPort: 1883,
+			Host: "192.168.1.104",
+			Port: 1883,
 		},
 	}
 }

@@ -22,14 +22,21 @@ type MqttForwarder[V Serializeable] struct {
 	data         chan V
 }
 
+type Credentials struct {
+	Username string `yaml:""`
+	Password string `yaml:""`
+}
+
 type MqttConfig struct {
-	MqttHost string `yaml:""`
-	MqttPort uint16 `yaml:""`
+	Host        string       `yaml:""`
+	Port        uint16       `yaml:""`
+	ClientID    *string      `yaml:""`
+	Credentials *Credentials `yaml:""`
 }
 
 // ConnectionString returns the mqtt-client compatible connection-string from the config
 func (config MqttConfig) ConnectionString() string {
-	return fmt.Sprintf("%v:%v", config.MqttHost, config.MqttPort)
+	return fmt.Sprintf("%v:%v", config.Host, config.Port)
 }
 
 type MqttCommand struct {
@@ -76,11 +83,26 @@ func (forwarder MqttForwarder[_]) onMqttMessage(client mqtt.Client, topic string
 }
 
 func (forwarder MqttForwarder[V]) Run() {
-	client, err := mqtt.NewClient(
+
+	options := []mqtt.Option{
 		mqtt.WithKeepalive(60, 1.2),
 		mqtt.WithAutoReconnect(true),
 		mqtt.WithBackoffStrategy(time.Second, 5*time.Second, 1.2),
 		mqtt.WithRouter(mqtt.NewRegexRouter()),
+	}
+
+	if forwarder.config.ClientID != nil {
+		log.Debug("Using MQTT clientID %v", forwarder.config.ClientID)
+		options = append(options, mqtt.WithClientID(*forwarder.config.ClientID))
+	}
+
+	if forwarder.config.Credentials != nil {
+		log.Debug("Using MQTT credentials %v:*******", forwarder.config.Credentials.Username)
+		options = append(options, mqtt.WithIdentity(forwarder.config.Credentials.Username, forwarder.config.Credentials.Password))
+	}
+
+	client, err := mqtt.NewClient(
+		options...,
 	)
 
 	if err != nil {

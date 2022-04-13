@@ -59,17 +59,17 @@ func (builder *ForwarderBuilder[V]) Server() *ForwarderConnectionBuilder[V] {
 }
 
 func (builder *ForwarderConnectionBuilder[V]) Host(host string) *ForwarderConnectionBuilder[V] {
-	builder.inner.config.MqttHost = host
+	builder.inner.config.Host = host
 	return builder
 }
 
 func (builder *ForwarderConnectionBuilder[V]) Port(port uint16) *ForwarderConnectionBuilder[V] {
-	builder.inner.config.MqttPort = port
+	builder.inner.config.Port = port
 	return builder
 }
 
 func (builder *ForwarderConnectionBuilder[V]) DefaultPort() *ForwarderConnectionBuilder[V] {
-	builder.inner.config.MqttPort = DEFAULT_MQTT_PORT
+	builder.inner.config.Port = DEFAULT_MQTT_PORT
 	return builder
 }
 
@@ -78,8 +78,8 @@ func (builder *ForwarderBuilder[V]) Build() (*MqttForwarder[V], error) {
 		builder.inner.killSwitch == nil ||
 		builder.inner.publishTopic == "" ||
 		builder.inner.commandTopic == "" ||
-		builder.inner.config.MqttHost == "" ||
-		builder.inner.config.MqttPort == 0 {
+		builder.inner.config.Host == "" ||
+		builder.inner.config.Port == 0 {
 		return nil, fmt.Errorf("Builder not ready - missing settings")
 	}
 
