@@ -2,9 +2,9 @@ package main
 
 import (
 	"io/ioutil"
-	"log"
 	"time"
 
+	log "github.com/sirupsen/logrus"
 	yaml "gopkg.in/yaml.v2"
 )
 
@@ -21,7 +21,7 @@ func (config Config) RequestPeriod() time.Duration {
 
 	requestPeriod, timeError := time.ParseDuration(config.RequestPeriodRepr)
 	if timeError != nil {
-		log.Printf("Warning: unable to parse RequestPeriod. Using internal default. Error: %v", timeError)
+		log.Error("Warning: unable to parse RequestPeriod. Using internal default. Error: %v", timeError)
 		requestPeriod = DEFAULT_PERIOD
 	}
 
@@ -43,15 +43,13 @@ func getConfig(from string) Config {
 	content, err := ioutil.ReadFile(from)
 
 	if err != nil {
-		log.Printf("Unable to read config from %v, using defauklts. Error: %v\n", from, err)
+		log.Error("Unable to read config from %v, using defauklts. Error: %v\n", from, err)
 		return getDefaultConfig()
 	}
 
-	log.Println(string(content))
-
 	config := Config{}
 	if yaml.Unmarshal(content, &config) != nil {
-		log.Printf("Unable to unmarshal config content '%v'. Error: %v\n", content, err)
+		log.Warn("Unable to unmarshal config content '%v'. Error: %v\n", content, err)
 		return getDefaultConfig()
 	}
 

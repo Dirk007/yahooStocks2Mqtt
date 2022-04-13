@@ -53,7 +53,7 @@ func (forwarder MqttForwarder[_]) onMqttConnected(client mqtt.Client, server str
 	if err != nil || code != mqtt.CodeSuccess {
 		log.Fatal(logLine)
 	} else {
-		log.Println(logLine)
+		log.Debug(logLine)
 		client.Subscribe([]*mqtt.Topic{
 			{Name: forwarder.commandTopic, Qos: mqtt.Qos1},
 		}...)
@@ -61,7 +61,7 @@ func (forwarder MqttForwarder[_]) onMqttConnected(client mqtt.Client, server str
 }
 
 func (forwarder MqttForwarder[_]) onMqttMessage(client mqtt.Client, topic string, qos mqtt.QosLevel, msg []byte) {
-	log.Printf("MQTT [%v] message: %v", topic, string(msg))
+	log.Debug("MQTT [%v] message: %v", topic, string(msg))
 	if topic != forwarder.commandTopic {
 		return
 	}
@@ -69,11 +69,11 @@ func (forwarder MqttForwarder[_]) onMqttMessage(client mqtt.Client, topic string
 	command := MqttCommand{}
 	err := json.Unmarshal(msg, &command)
 	if err != nil {
-		log.Printf("Unable to unmarshal mqtt command %v: %v", string(msg), err)
+		log.Warn("Unable to unmarshal mqtt command %v: %v", string(msg), err)
 		return
 	}
 
-	log.Printf("Received mqtt command: '%v'", command)
+	log.Debug("Received mqtt command: '%v'", command)
 
 	// TODO: Add more as needed
 	if command.IsKill() {
@@ -124,10 +124,10 @@ func (forwarder MqttForwarder[V]) Run() {
 	for {
 		select {
 		case quote = <-forwarder.data:
-			log.Printf("Received quote: %v", quote)
+			log.Debug("Received quote: %v", quote)
 			jsonQuote, err := quote.Serialize()
 			if err != nil {
-				log.Printf("Error marshalling incoming quote: %v", err)
+				log.Warn("Error marshalling incoming quote: %v", err)
 				continue
 			}
 			client.Publish([]*mqtt.PublishPacket{
@@ -138,6 +138,7 @@ func (forwarder MqttForwarder[V]) Run() {
 				},
 			}...)
 		case _ = <-forwarder.killSwitch:
+			log.Info("Exiting mqtt for killswitch")
 			break
 		}
 	}

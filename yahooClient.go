@@ -72,7 +72,7 @@ func requestLoop(symbols []string, requestPeriod time.Duration, quotesChannel ch
 		if err != nil {
 			log.Fatalf("Unable to request symbols: %v", err)
 		} else {
-			log.Printf("Got quotes: %v\n", quotes)
+			log.Debug("Got quotes: %v\n", quotes)
 			for _, quote := range quotes {
 				quotesChannel <- quote
 			}
@@ -83,7 +83,7 @@ func requestLoop(symbols []string, requestPeriod time.Duration, quotesChannel ch
 		case _ = <-sleepDone:
 			continue
 		case _ = <-kill:
-			log.Println("Exiting requestLoop for killswitch")
+			log.Info("Exiting requestLoop for killswitch")
 			return
 		}
 	}
