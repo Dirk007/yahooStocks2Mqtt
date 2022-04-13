@@ -15,7 +15,7 @@ type Serializeable interface {
 }
 
 type MqttForwarder[V Serializeable] struct {
-	target       string
+	config       MqttConfig
 	publishTopic string
 	commandTopic string
 	killSwitch   chan bool
@@ -39,16 +39,6 @@ type MqttCommand struct {
 // IsKill returns true if the given `command` represents a Kill
 func (command MqttCommand) IsKill() bool {
 	return strings.ToLower(command.Command) == "kill"
-}
-
-func NewForwarder[V Serializeable](config MqttConfig, publishTopic string, commandTopic string, killSwitch chan bool, data chan V) MqttForwarder[V] {
-	return MqttForwarder[V]{
-		target:       config.ConnectionString(),
-		publishTopic: publishTopic,
-		commandTopic: commandTopic,
-		killSwitch:   killSwitch,
-		data:         data,
-	}
 }
 
 func (forwarder MqttForwarder[_]) onMqttConnected(client mqtt.Client, server string, code byte, err error) {
@@ -97,7 +87,7 @@ func (forwarder MqttForwarder[V]) Run() {
 		panic(fmt.Errorf("Unable to create MQTT client: %v", err))
 	}
 
-	client.ConnectServer(forwarder.target,
+	client.ConnectServer(forwarder.config.ConnectionString(),
 		mqtt.WithCustomTLS(nil),
 		mqtt.WithConnHandleFunc(forwarder.onMqttConnected))
 

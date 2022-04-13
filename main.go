@@ -11,17 +11,27 @@ func main() {
 	log.SetOutput(os.Stdout)
 	log.SetLevel(log.DebugLevel)
 
-	config_file := os.Getenv("CONFIG_FILE")
-	if config_file == "" {
-		config_file = "config.yaml"
+	configFile := os.Getenv("CONFIG_FILE")
+	if configFile == "" {
+		configFile = "config.yaml"
 	}
-	config := getConfig(config_file)
+	config := getConfig(configFile)
 
 	quotes := make(chan YahooStockInfo)
 	kill := make(chan bool)
 
+	forwarder, err := NewForwarderBuilder[YahooStockInfo]().
+		Channels().Data(quotes).KillWitch(kill).
+		Topics().Input("stocks/command").Output("stockts/quote").
+		Server().Host(config.Mqtt.MqttHost).Port(config.Mqtt.MqttPort).
+		Build()
+
+	if err != nil {
+		log.Error("Unable to build MQTT forwarder: %v", err)
+		os.Exit(1)
+	}
+
 	go requestLoop(config.Symbols, config.RequestPeriod(), quotes, kill)
 
-	forwarder := NewForwarder(config.Mqtt, "stocks/quote", "stocks/command", kill, quotes)
 	forwarder.Run()
 }
