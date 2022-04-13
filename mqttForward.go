@@ -3,11 +3,11 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"log"
 	"strings"
 	"time"
 
 	mqtt "github.com/goiiot/libmqtt"
+	log "github.com/sirupsen/logrus"
 )
 
 type Serializeable interface {
@@ -120,7 +120,7 @@ func (forwarder MqttForwarder[V]) Run() {
 				{
 					TopicName: forwarder.publishTopic,
 					Payload:   []byte(jsonQuote),
-					Qos:       mqtt.Qos0,
+					Qos:       mqtt.Qos1,
 				},
 			}...)
 		case _ = <-forwarder.killSwitch:
