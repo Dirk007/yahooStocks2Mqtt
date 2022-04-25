@@ -17,12 +17,12 @@ type Config struct {
 // RequestPeriod returns the Duration of the human readable `RequestPeriodRepr` field or
 // a default value if that field in the config is malformed.
 func (config Config) RequestPeriod() time.Duration {
-	const DEFAULT_PERIOD = 5 * time.Minute
+	const DefaultPeriod = 5 * time.Minute
 
 	requestPeriod, timeError := time.ParseDuration(config.RequestPeriodRepr)
 	if timeError != nil {
 		log.Error("Warning: unable to parse RequestPeriod. Using internal default. Error: %v", timeError)
-		requestPeriod = DEFAULT_PERIOD
+		requestPeriod = DefaultPeriod
 	}
 
 	return requestPeriod

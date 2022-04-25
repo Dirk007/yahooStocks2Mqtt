@@ -11,7 +11,7 @@ import (
 )
 
 type Serializeable interface {
-	Serialize() (string, error)
+	Serialize() (*string, error)
 }
 
 type MqttForwarder[V Serializeable] struct {
@@ -77,7 +77,6 @@ func (forwarder MqttForwarder[_]) onMqttMessage(client mqtt.Client, topic string
 
 	// TODO: Add more as needed
 	if command.IsKill() {
-		// TODO: Unsure - I think we need one write per listener.. so two at this time
 		forwarder.killSwitch <- true
 		forwarder.killSwitch <- true
 	}
@@ -85,7 +84,6 @@ func (forwarder MqttForwarder[_]) onMqttMessage(client mqtt.Client, topic string
 }
 
 func (forwarder MqttForwarder[V]) Run() {
-
 	options := []mqtt.Option{
 		mqtt.WithKeepalive(60, 1.2),
 		mqtt.WithAutoReconnect(true),
@@ -133,13 +131,13 @@ func (forwarder MqttForwarder[V]) Run() {
 			client.Publish([]*mqtt.PublishPacket{
 				{
 					TopicName: forwarder.publishTopic,
-					Payload:   []byte(jsonQuote),
+					Payload:   []byte(*jsonQuote),
 					Qos:       mqtt.Qos1,
 				},
 			}...)
 		case _ = <-forwarder.killSwitch:
 			log.Info("Exiting mqtt for killswitch")
-			break
+			return
 		}
 	}
 }

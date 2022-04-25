@@ -22,7 +22,7 @@ func main() {
 
 	forwarder, err := NewForwarderBuilder[YahooStockInfo]().
 		Channels().Data(quotes).KillWitch(kill).
-		Topics().Input("stocks/command").Output("stockts/quote").
+		Topics().Input("stocks/command").Output("stocks/quote").
 		Server().Host(config.Mqtt.Host).Port(config.Mqtt.Port).
 		MQTT().Config(config.Mqtt).
 		Build()

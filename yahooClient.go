@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -18,13 +19,14 @@ type YahooStockInfo struct {
 	Symbol             string  `json:"symbol"`
 }
 
-func (stock YahooStockInfo) Serialize() (string, error) {
+func (stock YahooStockInfo) Serialize() (*string, error) {
 	result, err := json.Marshal(stock)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
-	return string(result), nil
+	strResult := string(result)
+	return &strResult, nil
 }
 
 type YahooQuoteResponse struct {
@@ -36,12 +38,12 @@ type YahooResponse struct {
 }
 
 func requestSymbols(symbols []string) ([]YahooStockInfo, error) {
-	symbolsRequest := strings.Join(symbols, ",")
+	symbolsList := strings.Join(symbols, ",")
 
 	client := resty.New()
 	resp, err := client.R().
 		SetQueryParams(map[string]string{
-			"symbols": symbolsRequest,
+			"symbols": symbolsList,
 		}).
 		SetHeader("Accept", "application/json").
 		Get("https://query2.finance.yahoo.com/v7/finance/quote")
@@ -60,8 +62,18 @@ func requestSymbols(symbols []string) ([]YahooStockInfo, error) {
 }
 
 // Sleeps the given `duration` and signals the completion via the sleepDone channel
-func sleeper(duration time.Duration, sleepDone chan bool) {
-	time.Sleep(duration)
+func sleeper(ctx context.Context, duration time.Duration, sleepDone chan bool) {
+	timer := time.NewTimer(duration)
+	select {
+	case _ = <-ctx.Done():
+		log.Debug("Timer done")
+		if !timer.Stop() {
+			log.Info("Timer could not be stopped. Draining.")
+			<-timer.C
+		}
+	case _ = <-timer.C:
+	}
+	log.Debug("Timer signalling finish")
 	sleepDone <- true
 }
 
@@ -78,12 +90,14 @@ func requestLoop(symbols []string, requestPeriod time.Duration, quotesChannel ch
 			}
 		}
 
-		go sleeper(requestPeriod, sleepDone)
+		ctx, cancel := context.WithCancel(context.Background())
+		go sleeper(ctx, requestPeriod, sleepDone)
 		select {
 		case _ = <-sleepDone:
 			continue
 		case _ = <-kill:
-			log.Info("Exiting requestLoop for killswitch")
+			log.Info("Exiting requestLoop for killswitch, canceling the sleep for next request")
+			cancel()
 			return
 		}
 	}
