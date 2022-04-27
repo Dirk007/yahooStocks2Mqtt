@@ -4,14 +4,17 @@ import (
 	"io/ioutil"
 	"time"
 
+	mqtt "github.com/Dirk007/yahooQuotes/pkg/mqtt"
+
 	log "github.com/sirupsen/logrus"
 	yaml "gopkg.in/yaml.v2"
 )
 
+// Config represents the configuration of the application
 type Config struct {
 	RequestPeriodRepr string     `yaml:"requestperiod"` //< humantime
 	Symbols           []string   `yamml:""`
-	Mqtt              MqttConfig `yaml:""`
+	Mqtt              mqtt.Config `yaml:""`
 }
 
 // RequestPeriod returns the Duration of the human readable `RequestPeriodRepr` field or
@@ -28,30 +31,32 @@ func (config Config) RequestPeriod() time.Duration {
 	return requestPeriod
 }
 
-func getDefaultConfig() Config {
-	return Config{
+// GetDefaultConfig returns the default configuration
+func GetDefaultConfig() *Config {
+	return &Config{
 		RequestPeriodRepr: "5m",
 		Symbols:           []string{"VGWL.DE", "VFEM.DE", "NLLSF", "PFE.DE"},
-		Mqtt: MqttConfig{
+		Mqtt: mqtt.Config{
 			Host: "192.168.1.104",
-			Port: 1883,
+			Port: mqtt.DefaultMqttPort,
 		},
 	}
 }
 
-func getConfig(from string) Config {
-	content, err := ioutil.ReadFile(from)
+// GetConfig reads the config from the given filename
+func GetConfig(filename string) (*Config, error) {
+	content, err := ioutil.ReadFile(filename)
 
 	if err != nil {
-		log.Error("Unable to read config from %v, using defauklts. Error: %v\n", from, err)
-		return getDefaultConfig()
+		log.Errorf("Unable to read config from %v, using defauklts. Error: %v\n", filename, err)
+		return nil, err
 	}
 
 	config := Config{}
 	if yaml.Unmarshal(content, &config) != nil {
-		log.Warn("Unable to unmarshal config content '%v'. Error: %v\n", content, err)
-		return getDefaultConfig()
+		log.Errorf("Unable to unmarshal config content '%v'. Error: %v\n", content, err)
+		return nil, err
 	}
 
-	return config
+	return &config, nil
 }

@@ -1,8 +1,8 @@
-package main
+package mqtt
 
 import "fmt"
 
-const DEFAULT_MQTT_PORT = 1883
+const DefaultMqttPort = 1883
 
 type ForwarderBuilder[V Serializeable] struct {
 	inner *MqttForwarder[V]
@@ -77,7 +77,7 @@ func (builder *ForwarderConnectionBuilder[V]) Port(port uint16) *ForwarderConnec
 }
 
 func (builder *ForwarderConnectionBuilder[V]) DefaultPort() *ForwarderConnectionBuilder[V] {
-	builder.inner.config.Port = DEFAULT_MQTT_PORT
+	builder.inner.config.Port = DefaultMqttPort
 	return builder
 }
 
@@ -85,7 +85,7 @@ func (builder *ForwarderBuilder[V]) MQTT() *ForwarderMQTTBuilder[V] {
 	return &ForwarderMQTTBuilder[V]{*builder}
 }
 
-func (builder *ForwarderMQTTBuilder[V]) Config(config MqttConfig) *ForwarderMQTTBuilder[V] {
+func (builder *ForwarderMQTTBuilder[V]) Config(config Config) *ForwarderMQTTBuilder[V] {
 	builder.inner.config = config
 	return builder
 }
@@ -111,7 +111,7 @@ func (builder *ForwarderCredentialsBuilder[V]) Password(password string) *Forwar
 	return builder
 }
 
-func credentialsOK(config MqttConfig) bool {
+func credentialsOK(config Config) bool {
 	return (config.Credentials != nil &&
 		config.Credentials.Username != "" &&
 		config.Credentials.Password != "") ||

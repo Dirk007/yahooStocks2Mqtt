@@ -1,4 +1,4 @@
-package main
+package mqtt
 
 import (
 	"encoding/json"
@@ -15,7 +15,7 @@ type Serializeable interface {
 }
 
 type MqttForwarder[V Serializeable] struct {
-	config       MqttConfig
+	config       Config
 	publishTopic string
 	commandTopic string
 	killSwitch   chan bool
@@ -27,7 +27,7 @@ type Credentials struct {
 	Password string `yaml:""`
 }
 
-type MqttConfig struct {
+type Config struct {
 	Host        string       `yaml:""`
 	Port        uint16       `yaml:""`
 	ClientID    *string      `yaml:""`
@@ -35,7 +35,7 @@ type MqttConfig struct {
 }
 
 // ConnectionString returns the mqtt-client compatible connection-string from the config
-func (config MqttConfig) ConnectionString() string {
+func (config Config) ConnectionString() string {
 	return fmt.Sprintf("%v:%v", config.Host, config.Port)
 }
 
