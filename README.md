@@ -1,2 +1,2 @@
 # This Project has moved
-here: git@github.com:Dirk007/yahooStocks2Mqtt.git
+here: https://gitlab.com/DirkFaust/yahoostocks2mqtt
