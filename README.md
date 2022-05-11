@@ -1,2 +1,2 @@
-# WIP: Yahoo finance stock quotes to mqtt service
-The mqtt part is still going out to own mod when finished
+# This Project has moved
+here: git@github.com:Dirk007/yahooStocks2Mqtt.git
